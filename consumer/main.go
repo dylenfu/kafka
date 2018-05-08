@@ -43,6 +43,7 @@ func clusterConsumer(wg *sync.WaitGroup, brokers, topics []string, groupId strin
 	// trap SIGINT to trigger a shutdown
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
+	signal.Notify(signals, os.Kill)
 
 	// consume errors
 	go func() {
@@ -54,13 +55,12 @@ func clusterConsumer(wg *sync.WaitGroup, brokers, topics []string, groupId strin
 	// consume notifications
 	go func() {
 		for ntf := range consumer.Notifications() {
-			log.Printf("%s:Rebalanced: %+v \n", groupId, ntf)
+			log.Printf("%s:Notification: %+v \n", groupId, ntf)
 		}
 	}()
 
 	// consume messages, watch signals
 	var successes int
-Loop:
 	for {
 		select {
 		case msg, ok := <-consumer.Messages():
@@ -70,8 +70,8 @@ Loop:
 				successes++
 			}
 		case <-signals:
-			break Loop
+			fmt.Fprintf(os.Stdout, "%s consume %d messages \n", groupId, successes)
+			os.Exit(1)
 		}
 	}
-	fmt.Fprintf(os.Stdout, "%s consume %d messages \n", groupId, successes)
 }
